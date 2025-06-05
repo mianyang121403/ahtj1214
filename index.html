@@ -3,89 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Base64解码工具</title>
+    <title>赛事数据</title>
     <style>
         body {
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
         }
-        h1 {
-            color: #333;
+        .app-container {
             text-align: center;
         }
-        .container {
-            background-color: #f9f9f9;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-        textarea {
-            width: 100%;
+        .recommend-btn {
+            width: 120px;
             height: 120px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            resize: vertical;
-        }
-        button {
-            background-color: #07C160;
+            background: linear-gradient(135deg, #07C160, #05a455);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 4px;
+            font-size: 18px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(7, 193, 96, 0.3);
             cursor: pointer;
-            margin-top: 10px;
-            font-size: 16px;
+            margin: 0 auto;
+            border: none;
+            outline: none;
+            transition: transform 0.3s;
         }
-        button:hover {
-            background-color: #06AD56;
+        .recommend-btn:hover {
+            transform: scale(1.05);
         }
-        #result {
-            margin-top: 20px;
-            white-space: pre-wrap;
+        .recommend-btn:active {
+            transform: scale(0.95);
+        }
+        #decodedContent {
+            margin-top: 30px;
+            padding: 20px;
             background-color: white;
-            padding: 15px;
-            border-radius: 4px;
-            border: 1px solid #eee;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            display: none; /* 默认隐藏 */
+            max-width: 90%;
+            text-align: left;
+        }
+        .watermark {
+            margin-top: 20px;
+            color: #999;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <h1>Base64解码工具</h1>
-    <div class="container">
-        <textarea id="base64Input" placeholder="在此粘贴Base64编码内容"></textarea>
-        <button onclick="decodeBase64()">解码内容</button>
-        <div id="result"></div>
+    <div class="app-container">
+        <button class="recommend-btn" onclick="showDecodedContent()">
+            精准推荐
+        </button>
+        
+        <div id="decodedContent"></div>
+        
+        <div class="watermark">
+            数据仅供参考
+        </div>
     </div>
 
     <script>
-        function decodeBase64() {
-            const input = document.getElementById("base64Input").value.trim();
+        // 解码函数
+        function decodeBase64(input) {
             try {
-                // 处理URL安全的Base64编码（替换-和_）
                 let base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-                // 添加必要的padding
-                while (base64.length % 4) {
-                    base64 += '=';
-                }
-                const decoded = decodeURIComponent(escape(atob(base64)));
-                document.getElementById("result").innerHTML = decoded.replace(/\n/g, '<br>');
+                while (base64.length % 4) base64 += '=';
+                return decodeURIComponent(escape(atob(base64)));
             } catch (e) {
-                document.getElementById("result").innerHTML = "解码失败！请检查输入内容是否正确。";
-                console.error(e);
+                return `解码失败: ${e.message}`;
             }
         }
 
-        // 自动解码URL中的参数
-        window.onload = function() {
+        // 显示解码内容
+        function showDecodedContent() {
             const urlParams = new URLSearchParams(window.location.search);
             const encodedData = urlParams.get('data');
-            if (encodedData) {
-                document.getElementById("base64Input").value = encodedData;
-                decodeBase64();
+            const contentDiv = document.getElementById("decodedContent");
+            
+            if (!encodedData) {
+                contentDiv.innerHTML = "❌ 未检测到有效数据";
+                contentDiv.style.display = "block";
+                return;
+            }
+
+            const decodedText = decodeBase64(encodedData);
+            contentDiv.innerHTML = `
+                <h3>⚽ 赛事分析报告</h3>
+                <pre>${decodedText}</pre>
+                <small style="color:#999">* 数据生成时间: ${new Date().toLocaleString()}</small>
+            `;
+            contentDiv.style.display = "block";
+        }
+
+        // 可选：如果希望URL不带参数时显示输入框
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.has('data')) {
+                document.getElementById("decodedContent").innerHTML = `
+                    <p>请通过正规渠道获取数据链接</p>
+                `;
             }
         };
     </script>
