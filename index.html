@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>赛事数据</title>
+    <title>阿宏推荐系统</title>
     <style>
         body {
-            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            font-family: 'Microsoft YaHei', sans-serif;
             background-color: #f0f2f5;
             display: flex;
             justify-content: center;
@@ -15,103 +15,183 @@
             margin: 0;
         }
         .app-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
             text-align: center;
         }
-        .recommend-btn {
-            width: 120px;
-            height: 120px;
-            background: linear-gradient(135deg, #07C160, #05a455);
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            font-size: 18px;
+        .logo {
+            font-size: 24px;
             font-weight: bold;
-            box-shadow: 0 5px 15px rgba(7, 193, 96, 0.3);
-            cursor: pointer;
-            margin: 0 auto;
-            border: none;
+            color: #1890ff;
+            margin-bottom: 30px;
+        }
+        .password-box {
+            margin-bottom: 25px;
+        }
+        input[type="password"] {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #d9d9d9;
+            border-radius: 6px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+            transition: border 0.3s;
+        }
+        input[type="password"]:focus {
+            border-color: #1890ff;
             outline: none;
-            transition: transform 0.3s;
         }
-        .recommend-btn:hover {
-            transform: scale(1.05);
+        .unlock-btn {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            transition: background 0.3s;
         }
-        .recommend-btn:active {
-            transform: scale(0.95);
+        .unlock-btn:hover {
+            background-color: #40a9ff;
         }
-        #decodedContent {
+        .unlock-btn:active {
+            background-color: #096dd9;
+        }
+        .error-msg {
+            color: #f5222d;
+            margin-top: 15px;
+            display: none;
+        }
+        .recommendation-container {
+            display: none;
             margin-top: 30px;
-            padding: 20px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            display: none; /* 默认隐藏 */
-            max-width: 90%;
             text-align: left;
         }
-        .watermark {
-            margin-top: 20px;
-            color: #999;
-            font-size: 12px;
+        .recommendation-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #1890ff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .recommendation-content {
+            background-color: #fafafa;
+            border-radius: 8px;
+            padding: 20px;
+            white-space: pre-line;
+            line-height: 1.8;
+        }
+        .update-time {
+            color: #8c8c8c;
+            font-size: 14px;
+            text-align: right;
+            margin-top: 15px;
+        }
+        .password-hint {
+            color: #8c8c8c;
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        .recommendation-icon {
+            margin-right: 10px;
+            font-size: 24px;
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <button class="recommend-btn" onclick="showDecodedContent()">
-            精准推荐
-        </button>
+        <div class="logo">阿宏精准推荐</div>
         
-        <div id="decodedContent"></div>
+        <div id="passwordSection">
+            <div class="password-box">
+                <input type="password" id="passwordInput" placeholder="请输入访问密码">
+                <button class="unlock-btn" onclick="checkPassword()">
+                    🔓 查看今日精准推荐
+                </button>
+                <div class="password-hint">初始密码：888888</div>
+            </div>
+            <div id="errorMsg" class="error-msg">密码错误，请重新输入</div>
+        </div>
         
-        <div class="watermark">
-            数据仅供参考
+        <div id="recommendationSection" class="recommendation-container">
+            <div class="recommendation-title">
+                <span class="recommendation-icon">✨</span>
+                <span>今日精准推荐</span>
+            </div>
+            <div class="recommendation-content" id="dailyRecommendation"></div>
+            <div class="update-time" id="updateTime"></div>
         </div>
     </div>
 
     <script>
-        // 解码函数
-        function decodeBase64(input) {
-            try {
-                let base64 = input.replace(/-/g, '+').replace(/_/g, '/');
-                while (base64.length % 4) base64 += '=';
-                return decodeURIComponent(escape(atob(base64)));
-            } catch (e) {
-                return `解码失败: ${e.message}`;
-            }
-        }
+        // 系统配置
+        const CONFIG = {
+            password: "888888", // 访问密码
+            contentUrl: "https://github.com/mianyang121403/-.git" // 推荐内容URL
+        };
 
-        // 显示解码内容
-        function showDecodedContent() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const encodedData = urlParams.get('data');
-            const contentDiv = document.getElementById("decodedContent");
+        // 检查密码
+        function checkPassword() {
+            const inputPassword = document.getElementById("passwordInput").value;
+            const errorMsg = document.getElementById("errorMsg");
             
-            if (!encodedData) {
-                contentDiv.innerHTML = "❌ 未检测到有效数据";
-                contentDiv.style.display = "block";
-                return;
+            if (inputPassword === CONFIG.password) {
+                // 密码正确
+                document.getElementById("passwordSection").style.display = "none";
+                document.getElementById("recommendationSection").style.display = "block";
+                loadRecommendation();
+            } else {
+                // 密码错误
+                errorMsg.style.display = "block";
+                document.getElementById("passwordInput").focus();
             }
-
-            const decodedText = decodeBase64(encodedData);
-            contentDiv.innerHTML = `
-                <h3>⚽ 赛事分析报告</h3>
-                <pre>${decodedText}</pre>
-                <small style="color:#999">* 数据生成时间: ${new Date().toLocaleString()}</small>
-            `;
-            contentDiv.style.display = "block";
         }
 
-        // 可选：如果希望URL不带参数时显示输入框
-        window.onload = function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            if (!urlParams.has('data')) {
-                document.getElementById("decodedContent").innerHTML = `
-                    <p>请通过正规渠道获取数据链接</p>
-                `;
+        // 加载推荐内容
+        async function loadRecommendation() {
+            const contentDiv = document.getElementById("dailyRecommendation");
+            const timeDiv = document.getElementById("updateTime");
+            
+            contentDiv.textContent = "正在获取最新推荐...";
+            
+            try {
+                // 添加时间戳防止缓存
+                const response = await fetch(`${CONFIG.contentUrl}?t=${new Date().getTime()}`);
+                
+                if (!response.ok) {
+                    throw new Error(`网络请求失败: ${response.status}`);
+                }
+                
+                const content = await response.text();
+                const lastModified = response.headers.get('last-modified') || new Date().toLocaleString();
+                
+                contentDiv.textContent = content;
+                timeDiv.textContent = `最后更新: ${lastModified}`;
+                
+            } catch (error) {
+                contentDiv.textContent = `获取推荐内容失败:\n${error.message}`;
+                timeDiv.textContent = "请稍后再试或联系管理员";
             }
+        }
+
+        // 回车键提交
+        document.getElementById("passwordInput").addEventListener("keyup", function(event) {
+            if (event.key === "Enter") {
+                checkPassword();
+            }
+        });
+
+        // 页面加载后自动聚焦密码输入框
+        window.onload = function() {
+            document.getElementById("passwordInput").focus();
         };
     </script>
 </body>
