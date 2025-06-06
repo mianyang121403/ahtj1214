@@ -29,24 +29,7 @@
             color: #1890ff;
             margin-bottom: 30px;
         }
-        .password-box {
-            margin-bottom: 25px;
-        }
-        input[type="password"] {
-            width: 100%;
-            padding: 14px;
-            border: 1px solid #d9d9d9;
-            border-radius: 6px;
-            font-size: 16px;
-            margin-bottom: 20px;
-            box-sizing: border-box;
-            transition: border 0.3s;
-        }
-        input[type="password"]:focus {
-            border-color: #1890ff;
-            outline: none;
-        }
-        .unlock-btn {
+        .view-btn {
             background-color: #1890ff;
             color: white;
             border: none;
@@ -57,17 +40,16 @@
             width: 100%;
             cursor: pointer;
             transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
-        .unlock-btn:hover {
+        .view-btn:hover {
             background-color: #40a9ff;
         }
-        .unlock-btn:active {
+        .view-btn:active {
             background-color: #096dd9;
-        }
-        .error-msg {
-            color: #f5222d;
-            margin-top: 15px;
-            display: none;
         }
         .recommendation-container {
             display: none;
@@ -95,11 +77,6 @@
             text-align: right;
             margin-top: 15px;
         }
-        .password-hint {
-            color: #8c8c8c;
-            font-size: 14px;
-            margin-top: 15px;
-        }
         .recommendation-icon {
             margin-right: 10px;
             font-size: 24px;
@@ -110,16 +87,10 @@
     <div class="app-container">
         <div class="logo">阿宏精准推荐</div>
         
-        <div id="passwordSection">
-            <div class="password-box">
-                <input type="password" id="passwordInput" placeholder="请输入访问密码">
-                <button class="unlock-btn" onclick="checkPassword()">
-                    🔓 查看今日精准推荐
-                </button>
-                <div class="password-hint">初始密码：888888</div>
-            </div>
-            <div id="errorMsg" class="error-msg">密码错误，请重新输入</div>
-        </div>
+        <button class="view-btn" onclick="loadRecommendation()">
+            <span>✨</span>
+            <span>查看今日精准推荐</span>
+        </button>
         
         <div id="recommendationSection" class="recommendation-container">
             <div class="recommendation-title">
@@ -134,32 +105,17 @@
     <script>
         // 系统配置
         const CONFIG = {
-            password: "888888", // 访问密码
             contentUrl: "https://raw.githubusercontent.com/mianyang121403/ahtj1214/refs/heads/main/recommendation.txt" // 推荐内容URL
         };
-
-        // 检查密码
-        function checkPassword() {
-            const inputPassword = document.getElementById("passwordInput").value;
-            const errorMsg = document.getElementById("errorMsg");
-            
-            if (inputPassword === CONFIG.password) {
-                // 密码正确
-                document.getElementById("passwordSection").style.display = "none";
-                document.getElementById("recommendationSection").style.display = "block";
-                loadRecommendation();
-            } else {
-                // 密码错误
-                errorMsg.style.display = "block";
-                document.getElementById("passwordInput").focus();
-            }
-        }
 
         // 加载推荐内容
         async function loadRecommendation() {
             const contentDiv = document.getElementById("dailyRecommendation");
             const timeDiv = document.getElementById("updateTime");
+            const recSection = document.getElementById("recommendationSection");
             
+            // 显示推荐区域
+            recSection.style.display = "block";
             contentDiv.textContent = "正在获取最新推荐...";
             
             try {
@@ -176,23 +132,19 @@
                 contentDiv.textContent = content;
                 timeDiv.textContent = `最后更新: ${lastModified}`;
                 
+                // 滚动到推荐区域
+                recSection.scrollIntoView({ behavior: 'smooth' });
+                
             } catch (error) {
                 contentDiv.textContent = `获取推荐内容失败:\n${error.message}`;
-                timeDiv.textContent = "请稍后再试或联系管理员";
+                timeDiv.textContent = "请下载旺商聊加940734016阿宏领取今日推荐。苹果应用商店搜索旺商聊，安卓下载地址wwtalk.com";
             }
         }
 
-        // 回车键提交
-        document.getElementById("passwordInput").addEventListener("keyup", function(event) {
-            if (event.key === "Enter") {
-                checkPassword();
-            }
-        });
-
-        // 页面加载后自动聚焦密码输入框
-        window.onload = function() {
-            document.getElementById("passwordInput").focus();
-        };
+        // 页面加载后自动加载推荐内容（可选）
+        // window.onload = function() {
+        //     loadRecommendation();
+        // };
     </script>
 </body>
 </html>
