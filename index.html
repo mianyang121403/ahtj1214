@@ -10,11 +10,11 @@
             background-color: #f0f2f5;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* 修改为顶部对齐 */
+            align-items: flex-start;
             min-height: 100vh;
             margin: 0;
-            padding: 20px 0; /* 添加上下内边距 */
-            overflow-x: hidden; /* 防止水平滚动 */
+            padding: 20px 0;
+            overflow-x: hidden;
         }
         .app-container {
             background-color: white;
@@ -24,7 +24,7 @@
             width: 90%;
             max-width: 500px;
             text-align: center;
-            margin: 20px auto; /* 添加外边距 */
+            margin: 20px auto;
             position: relative;
         }
         .logo {
@@ -122,8 +122,21 @@
             border-radius: 4px;
             margin-left: 8px;
         }
+        .new-tag {
+            font-size: 12px;
+            color: #ff4d4f;
+            background-color: #fff2f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 1; }
+            100% { opacity: 0.8; }
+        }
 
-        /* 响应式设计 */
         @media (max-width: 600px) {
             .recommendation-content {
                 padding: 15px;
@@ -160,7 +173,7 @@
         <div id="recommendationSection" class="recommendation-container">
             <div class="recommendation-title">
                 <span class="recommendation-icon">✨</span>
-                <span>今日精准推荐</span>
+                <span>今日最新推荐</span>
                 <span id="sourceTag" class="source-tag"></span>
             </div>
             <div class="recommendation-content" id="dailyRecommendation"></div>
@@ -171,21 +184,20 @@
     <script>
         // 系统配置
         const CONFIG = {
-            sources: [
-                {
-                    name: "Gitee主源",
-                    url: "https://gitee.com/你的Gitee用户名/ahtj1214/raw/main/recommendation.txt"
-                },
-                {
-                    name: "GitHub备用",
-                    url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt"
-                }
-            ],
+            source: {
+                name: "GitHub",
+                url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt"
+            },
             timeout: 8000,
-            cacheExpiry: 3600000
+            cacheExpiry: 300000, // 5分钟缓存
+            checkInterval: 180000 // 每分钟检查一次更新
         };
 
-        // 加载推荐内容（已修复滚动问题）
+        // 全局变量记录当前内容
+        let currentContent = '';
+        let isNewContent = false;
+
+        // 加载推荐内容
         async function loadRecommendation() {
             const contentDiv = document.getElementById("dailyRecommendation");
             const timeDiv = document.getElementById("updateTime");
@@ -203,22 +215,36 @@
             mainBtn.disabled = true;
             mainBtn.innerHTML = '<span class="loading-spinner"></span><span>加载中...</span>';
             retryBtn.style.display = "none";
-            sourceTag.textContent = "";
             
             try {
-                const { content, sourceName } = await fetchRecommendation();
+                const { content, lastModified } = await fetchWithTimeout(CONFIG.source);
                 
-                // 更新内容
+                // 检查内容是否更新
+                const cached = getCachedRecommendation();
+                isNewContent = !cached || content !== cached.content;
+                
+                // 更新显示
+                currentContent = content;
                 contentDiv.textContent = content;
                 contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
                 timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
-                sourceTag.textContent = sourceName;
+                
+                // 显示更新状态
+                if (isNewContent) {
+                    sourceTag.textContent = "最新";
+                    sourceTag.className = "new-tag";
+                    setTimeout(() => {
+                        sourceTag.className = "source-tag";
+                        sourceTag.textContent = "";
+                    }, 2000);
+                } else {
+                    sourceTag.textContent = "";
+                }
                 
                 // 恢复滚动位置
                 requestAnimationFrame(() => {
                     window.scrollTo(0, scrollPosition);
                     setTimeout(() => {
-                        // 平滑滚动到推荐区域（仅当内容超出可视区域时）
                         const recSectionTop = recSection.getBoundingClientRect().top;
                         const windowHeight = window.innerHeight;
                         if (recSectionTop < 0 || recSectionTop > windowHeight) {
@@ -233,7 +259,7 @@
                 // 存储缓存
                 localStorage.setItem('lastRecommendation', JSON.stringify({
                     content,
-                    sourceName,
+                    lastModified,
                     timestamp: Date.now()
                 }));
                 
@@ -241,13 +267,12 @@
                 // 显示缓存内容
                 const cached = getCachedRecommendation();
                 if (cached) {
-                    contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，可能不是最新)`;
+                    contentDiv.textContent = `${cached.content}\n\n(注: 当前为缓存内容，点击按钮获取最新)`;
                     contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
-                    sourceTag.textContent = `${cached.sourceName} · 缓存`;
                     timeDiv.textContent = `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
                 } else {
                     contentDiv.textContent = `获取推荐内容失败: ${error.message}`;
-                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016领取最新推荐码苹果商店搜索旺商聊安卓wwtalk.com";
+                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016获取最新推荐码，安卓wwtalk.com 苹果商店搜索旺商聊";
                 }
                 retryBtn.style.display = "block";
                 
@@ -257,43 +282,49 @@
                 });
             } finally {
                 mainBtn.disabled = false;
-                mainBtn.innerHTML = '<span>✨</span><span>查看今日推荐</span>';
+                mainBtn.innerHTML = '<span>✨</span><span>获取最新推荐</span>';
             }
         }
 
-        // 从数据源获取内容
-        async function fetchRecommendation() {
-            let lastError = null;
-            
-            for (const source of CONFIG.sources) {
-                try {
-                    const content = await fetchWithTimeout(source.url);
-                    return { content, sourceName: source.name };
-                } catch (error) {
-                    lastError = error;
-                    console.warn(`从${source.name}获取失败:`, error);
+        // 检查内容更新
+        async function checkForUpdates() {
+            try {
+                const { content } = await fetchWithTimeout(CONFIG.source);
+                const cached = getCachedRecommendation();
+                
+                if (cached && content !== cached.content) {
+                    // 发现新内容
+                    const sourceTag = document.getElementById("sourceTag");
+                    sourceTag.textContent = "有更新";
+                    sourceTag.className = "new-tag";
                 }
+            } catch (error) {
+                console.log("更新检查失败:", error);
             }
-            
-            throw lastError || new Error("所有数据源均不可用");
         }
 
         // 带超时的fetch请求
-        async function fetchWithTimeout(url) {
+        async function fetchWithTimeout(source) {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), CONFIG.timeout);
             
+            // 添加随机参数防止缓存
+            const url = source.url + (source.url.includes('?') ? '&' : '?') + '_=' + Date.now();
+
             try {
-                const response = await fetch(`${url}?t=${new Date().getTime()}`, {
-                    signal: controller.signal
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    cache: 'no-store'
                 });
                 clearTimeout(timeout);
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP状态: ${response.status}`);
-                }
+                if (!response.ok) throw new Error(`HTTP状态: ${response.status}`);
                 
-                return await response.text();
+                const content = await response.text();
+                const lastModified = response.headers.get('last-modified') || '';
+                
+                return { content, lastModified };
+                
             } catch (error) {
                 throw new Error(error.name === "AbortError" ? "请求超时" : error.message);
             }
@@ -315,18 +346,25 @@
             }
         }
 
-        // 页面加载时显示缓存
+        // 页面加载时初始化
         window.addEventListener('DOMContentLoaded', () => {
+            // 显示缓存内容
             const cached = getCachedRecommendation();
             if (cached) {
+                currentContent = cached.content;
                 const contentDiv = document.getElementById('dailyRecommendation');
-                contentDiv.textContent = `${cached.content}\n\n(注: 当前为缓存内容，点击查看按钮获取最新)`;
+                contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
                 contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
                 document.getElementById('updateTime').textContent = 
                     `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
-                document.getElementById('sourceTag').textContent = `${cached.sourceName} · 缓存`;
                 document.getElementById('recommendationSection').style.display = 'block';
             }
+            
+            // 启动定时更新检查
+            setInterval(checkForUpdates, CONFIG.checkInterval);
+            
+            // 首次加载后立即检查更新
+            setTimeout(checkForUpdates, 2000);
         });
     </script>
 </body>
