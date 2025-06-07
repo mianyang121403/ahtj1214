@@ -22,6 +22,8 @@
             width: 90%;
             max-width: 500px;
             text-align: center;
+            min-height: 300px; /* 新增：保证足够空间 */
+            overflow: visible; /* 新增：防止意外裁剪 */
         }
         .logo {
             font-size: 24px;
@@ -74,6 +76,14 @@
             padding: 20px;
             white-space: pre-line;
             line-height: 1.8;
+            /* 新增修复样式 */
+            max-height: none;
+            overflow: visible;
+            word-wrap: break-word;
+            min-height: 100px;
+        }
+        .recommendation-content a {
+            word-break: break-all; /* URL强制换行 */
         }
         .update-time {
             color: #8c8c8c;
@@ -108,11 +118,23 @@
             border-radius: 4px;
             margin-left: 8px;
         }
+
+        /* 响应式设计 */
+        @media (max-width: 600px) {
+            .recommendation-content {
+                padding: 15px;
+                font-size: 14px;
+            }
+            .app-container {
+                width: 95%;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="logo">博主内部推荐</div>
+        <div class="logo">博主精准推荐</div>
         
         <button class="view-btn" onclick="loadRecommendation()" id="mainBtn">
             <span>✨</span>
@@ -173,8 +195,9 @@
                 // 尝试从多个源获取数据
                 const { content, sourceName } = await fetchRecommendation();
                 
-                // 显示内容
+                // 显示内容并动态调整高度
                 contentDiv.textContent = content;
+                contentDiv.style.minHeight = contentDiv.scrollHeight + 'px'; // 关键修复：动态高度
                 timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
                 sourceTag.textContent = sourceName;
                 recSection.scrollIntoView({ behavior: 'smooth' });
@@ -191,16 +214,17 @@
                 const cached = getCachedRecommendation();
                 if (cached) {
                     contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，可能不是最新)`;
+                    contentDiv.style.minHeight = contentDiv.scrollHeight + 'px'; // 缓存内容也调整高度
                     sourceTag.textContent = `${cached.sourceName} · 缓存`;
                     timeDiv.textContent = `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
                 } else {
                     contentDiv.textContent = `获取推荐内容失败: ${error.message}`;
-                    timeDiv.textContent = "请检查网络连接后重试旺商聊加940734016进博主内部推单群苹果应用商店搜旺商聊安卓wwtalk.com";
+                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016进博主内部推荐群苹果商店搜索旺商聊安卓wwtalk.com";
                 }
                 retryBtn.style.display = "block";
             } finally {
                 mainBtn.disabled = false;
-                mainBtn.innerHTML = '<span>✨</span><span>查看今日精准推荐</span>';
+                mainBtn.innerHTML = '<span>✨</span><span>查看今日推荐</span>';
             }
         }
 
@@ -260,21 +284,19 @@
             }
         }
 
-        // 可选: 页面加载时检查并显示缓存
+        // 页面加载时检查并显示缓存
         window.addEventListener('DOMContentLoaded', () => {
             const cached = getCachedRecommendation();
             if (cached) {
-                document.getElementById('dailyRecommendation').textContent = 
-                    `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
+                const contentDiv = document.getElementById('dailyRecommendation');
+                contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
+                contentDiv.style.minHeight = contentDiv.scrollHeight + 'px'; // 初始化时也调整高度
                 document.getElementById('updateTime').textContent = 
                     `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
                 document.getElementById('sourceTag').textContent = `${cached.sourceName} · 缓存`;
                 document.getElementById('recommendationSection').style.display = 'block';
             }
         });
-    </script>
-</body>
-</html>
     </script>
 </body>
 </html>
