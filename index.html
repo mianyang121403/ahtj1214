@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>认准阿宏推荐</title>
+    <title>内部推荐系统</title>
     <style>
         body {
             font-family: 'Microsoft YaHei', sans-serif;
@@ -51,6 +51,10 @@
         .view-btn:active {
             background-color: #096dd9;
         }
+        .view-btn:disabled {
+            background-color: #bae7ff;
+            cursor: not-allowed;
+        }
         .recommendation-container {
             display: none;
             margin-top: 30px;
@@ -81,21 +85,50 @@
             margin-right: 10px;
             font-size: 24px;
         }
+        .loading-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .retry-btn {
+            margin-top: 15px;
+        }
+        .source-tag {
+            font-size: 12px;
+            color: #52c41a;
+            background-color: #f6ffed;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="logo">博主精准推荐</div>
+        <div class="logo">博主内部推荐</div>
         
-        <button class="view-btn" onclick="loadRecommendation()">
+        <button class="view-btn" onclick="loadRecommendation()" id="mainBtn">
             <span>✨</span>
             <span>查看今日推荐</span>
+        </button>
+        
+        <button class="view-btn retry-btn" onclick="loadRecommendation()" id="retryBtn" style="display: none;">
+            <span>🔄</span>
+            <span>重新获取</span>
         </button>
         
         <div id="recommendationSection" class="recommendation-container">
             <div class="recommendation-title">
                 <span class="recommendation-icon">✨</span>
-                <span>今日重心推荐</span>
+                <span>今日精准推荐</span>
+                <span id="sourceTag" class="source-tag"></span>
             </div>
             <div class="recommendation-content" id="dailyRecommendation"></div>
             <div class="update-time" id="updateTime"></div>
@@ -103,9 +136,20 @@
     </div>
 
     <script>
-        // 系统配置
+        // 系统配置 - 使用Gitee作为主源
         const CONFIG = {
-            contentUrl: "https://raw.githubusercontent.com/mianyang121403/ahtj1214/refs/heads/main/recommendation.txt" // 推荐内容URL
+            sources: [
+                {
+                    name: "Gitee主源",
+                    url: "https://gitee.com/你的Gitee用户名/ahtj1214/raw/main/recommendation.txt"
+                },
+                {
+                    name: "GitHub备用",
+                    url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt"
+                }
+            ],
+            timeout: 8000, // 8秒超时
+            cacheExpiry: 3600000 // 1小时缓存有效期(毫秒)
         };
 
         // 加载推荐内容
@@ -113,38 +157,124 @@
             const contentDiv = document.getElementById("dailyRecommendation");
             const timeDiv = document.getElementById("updateTime");
             const recSection = document.getElementById("recommendationSection");
+            const mainBtn = document.getElementById("mainBtn");
+            const retryBtn = document.getElementById("retryBtn");
+            const sourceTag = document.getElementById("sourceTag");
             
-            // 显示推荐区域
+            // 显示推荐区域，设置加载状态
             recSection.style.display = "block";
             contentDiv.textContent = "正在获取最新推荐...";
+            mainBtn.disabled = true;
+            mainBtn.innerHTML = '<span class="loading-spinner"></span><span>加载中...</span>';
+            retryBtn.style.display = "none";
+            sourceTag.textContent = "";
             
             try {
-                // 添加时间戳防止缓存
-                const response = await fetch(`${CONFIG.contentUrl}?t=${new Date().getTime()}`);
+                // 尝试从多个源获取数据
+                const { content, sourceName } = await fetchRecommendation();
                 
-                if (!response.ok) {
-                    throw new Error(`网络请求失败: ${response.status}`);
-                }
-                
-                const content = await response.text();
-                const lastModified = response.headers.get('last-modified') || new Date().toLocaleString();
-                
+                // 显示内容
                 contentDiv.textContent = content;
-                timeDiv.textContent = `最后更新: ${lastModified}`;
-                
-                // 滚动到推荐区域
+                timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
+                sourceTag.textContent = sourceName;
                 recSection.scrollIntoView({ behavior: 'smooth' });
                 
+                // 存储到本地缓存
+                localStorage.setItem('lastRecommendation', JSON.stringify({
+                    content,
+                    sourceName,
+                    timestamp: Date.now()
+                }));
+                
             } catch (error) {
-                contentDiv.textContent = `获取推荐内容失败:\n${error.message}`;
-                timeDiv.textContent = "请下载旺商聊加940734016阿宏领取今日推荐。苹果应用商店搜索旺商聊，安卓下载地址wwtalk.com";
+                // 尝试显示缓存内容
+                const cached = getCachedRecommendation();
+                if (cached) {
+                    contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，可能不是最新)`;
+                    sourceTag.textContent = `${cached.sourceName} · 缓存`;
+                    timeDiv.textContent = `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
+                } else {
+                    contentDiv.textContent = `获取推荐内容失败: ${error.message}`;
+                    timeDiv.textContent = "请检查网络连接后重试旺商聊加940734016进博主内部推单群苹果应用商店搜旺商聊安卓wwtalk.com";
+                }
+                retryBtn.style.display = "block";
+            } finally {
+                mainBtn.disabled = false;
+                mainBtn.innerHTML = '<span>✨</span><span>查看今日精准推荐</span>';
             }
         }
 
-        // 页面加载后自动加载推荐内容（可选）
-        // window.onload = function() {
-        //     loadRecommendation();
-        // };
+        // 从多个数据源获取推荐内容
+        async function fetchRecommendation() {
+            let lastError = null;
+            
+            for (const source of CONFIG.sources) {
+                try {
+                    const content = await fetchWithTimeout(source.url);
+                    return { content, sourceName: source.name };
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`从${source.name}获取失败:`, error);
+                    // 继续尝试下一个源
+                }
+            }
+            
+            throw lastError || new Error("所有数据源均不可用");
+        }
+
+        // 带超时的fetch封装
+        async function fetchWithTimeout(url) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), CONFIG.timeout);
+            
+            try {
+                const response = await fetch(`${url}?t=${new Date().getTime()}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeout);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP状态: ${response.status}`);
+                }
+                
+                return await response.text();
+            } catch (error) {
+                throw new Error(error.name === "AbortError" ? "请求超时" : error.message);
+            }
+        }
+
+        // 获取缓存的推荐内容
+        function getCachedRecommendation() {
+            const cached = localStorage.getItem('lastRecommendation');
+            if (!cached) return null;
+            
+            try {
+                const data = JSON.parse(cached);
+                // 检查缓存是否过期
+                if (Date.now() - data.timestamp > CONFIG.cacheExpiry) {
+                    return null;
+                }
+                return data;
+            } catch {
+                return null;
+            }
+        }
+
+        // 可选: 页面加载时检查并显示缓存
+        window.addEventListener('DOMContentLoaded', () => {
+            const cached = getCachedRecommendation();
+            if (cached) {
+                document.getElementById('dailyRecommendation').textContent = 
+                    `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
+                document.getElementById('updateTime').textContent = 
+                    `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
+                document.getElementById('sourceTag').textContent = `${cached.sourceName} · 缓存`;
+                document.getElementById('recommendationSection').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
     </script>
 </body>
 </html>
