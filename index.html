@@ -3,231 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>阿宏推荐系统</title>
+    <title>内部推荐系统</title>
     <style>
-        /* 原有样式保持不变，新增以下样式 */
-        .update-indicator {
-            font-size: 12px;
-            padding: 2px 8px;
-            border-radius: 10px;
-            margin-left: 8px;
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            overflow-x: hidden;
+        }
+        .app-container {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            margin: 20px auto;
+            position: relative;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1890ff;
+            margin-bottom: 30px;
+        }
+        .view-btn {
+            background-color: #1890ff;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            transition: background 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .view-btn:hover {
+            background-color: #40a9ff;
+        }
+        .view-btn:active {
+            background-color: #096dd9;
+        }
+        .view-btn:disabled {
+            background-color: #bae7ff;
+            cursor: not-allowed;
+        }
+        .recommendation-container {
+            display: none;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .recommendation-title {
+            font-size: 22px;
+            font-weight: bold;
+            color: #1890ff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .recommendation-content {
+            background-color: #fafafa;
+            border-radius: 8px;
+            padding: 20px;
+            white-space: pre-line;
+            line-height: 1.8;
+            max-height: none;
+            overflow: visible;
+            word-wrap: break-word;
+            min-height: 100px;
+            font-size: 18px;
+            text-align: center;
+        }
+        .recommendation-content a {
+            word-break: break-all;
+        }
+        .update-time {
+            color: #8c8c8c;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 15px;
+        }
+        .recommendation-icon {
+            margin-right: 10px;
+            font-size: 24px;
+        }
+        .loading-spinner {
             display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
         }
-        .new-update {
-            background-color: #ff4d4f;
-            color: white;
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .retry-btn {
+            margin-top: 15px;
+        }
+        .source-tag {
+            font-size: 12px;
+            color: #52c41a;
+            background-color: #f6ffed;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
+        }
+        .new-tag {
+            font-size: 12px;
+            color: #ff4d4f;
+            background-color: #fff2f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 8px;
             animation: pulse 1.5s infinite;
-        }
-        .cached-data {
-            background-color: #faad14;
-            color: white;
         }
         @keyframes pulse {
             0% { opacity: 0.8; }
             50% { opacity: 1; }
             100% { opacity: 0.8; }
         }
+
+        @media (max-width: 600px) {
+            .recommendation-content {
+                padding: 15px;
+                font-size: 16px;
+            }
+            .recommendation-title {
+                font-size: 20px;
+            }
+            .app-container {
+                width: 95%;
+                padding: 20px;
+            }
+            .view-btn {
+                padding: 12px;
+                font-size: 15px;
+            }
+        }
     </style>
 </head>
 <body>
-    <!-- 原有HTML结构保持不变 -->
     <div class="app-container">
-        <!-- ...其他元素... -->
+        <div class="logo">博主精准推荐</div>
+        
+        <button class="view-btn" onclick="loadRecommendation()" id="mainBtn">
+            <span>✨</span>
+            <span>查看今日推荐</span>
+        </button>
+        
+        <button class="view-btn retry-btn" onclick="loadRecommendation()" id="retryBtn" style="display: none;">
+            <span>🔄</span>
+            <span>重新获取</span>
+        </button>
+        
         <div id="recommendationSection" class="recommendation-container">
             <div class="recommendation-title">
                 <span class="recommendation-icon">✨</span>
-                <span>今日精准推荐</span>
-                <span id="updateIndicator" class="update-indicator"></span>
+                <span>今日最新推荐</span>
+                <span id="sourceTag" class="source-tag"></span>
             </div>
-            <!-- ... -->
+            <div class="recommendation-content" id="dailyRecommendation"></div>
+            <div class="update-time" id="updateTime"></div>
         </div>
     </div>
 
     <script>
-        // 增强版系统配置
+        // 系统配置
         const CONFIG = {
             source: {
-                url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt",
-                // 添加ETag支持
-                useETag: true,
-                // 强制刷新参数
-                forceRefresh: true
+                name: "GitHub",
+                url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt"
             },
-            timeout: 10000, // 10秒超时
-            cache: {
-                enabled: true,
-                duration: 300000, // 5分钟缓存
-                staleWhileRevalidate: 60000 // 1分钟内使用缓存同时后台更新
-            },
-            updateCheck: {
-                interval: 30000, // 每30秒检查一次
-                retry: 3 // 失败重试次数
-            }
+            timeout: 8000,
+            cacheExpiry: 300000, // 5分钟缓存
+            checkInterval: 180000 // 每分钟检查一次更新
         };
 
-        // 状态管理
-        const appState = {
-            lastContent: null,
-            lastETag: null,
-            lastModified: null,
-            isFetching: false
-        };
+        // 全局变量记录当前内容
+        let currentContent = '';
+        let isNewContent = false;
 
-        // 增强的fetch函数
-        async function fetchContent() {
-            if (appState.isFetching) return;
-            appState.isFetching = true;
+        // 加载推荐内容
+        async function loadRecommendation() {
+            const contentDiv = document.getElementById("dailyRecommendation");
+            const timeDiv = document.getElementById("updateTime");
+            const recSection = document.getElementById("recommendationSection");
+            const mainBtn = document.getElementById("mainBtn");
+            const retryBtn = document.getElementById("retryBtn");
+            const sourceTag = document.getElementById("sourceTag");
+            
+            // 保存当前滚动位置
+            const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // 显示推荐区域
+            recSection.style.display = "block";
+            contentDiv.textContent = "正在获取最新推荐...";
+            mainBtn.disabled = true;
+            mainBtn.innerHTML = '<span class="loading-spinner"></span><span>加载中...</span>';
+            retryBtn.style.display = "none";
             
             try {
-                const headers = {};
-                if (CONFIG.source.useETag && appState.lastETag) {
-                    headers['If-None-Match'] = appState.lastETag;
+                const { content, lastModified } = await fetchWithTimeout(CONFIG.source);
+                
+                // 检查内容是否更新
+                const cached = getCachedRecommendation();
+                isNewContent = !cached || content !== cached.content;
+                
+                // 更新显示
+                currentContent = content;
+                contentDiv.textContent = content;
+                contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
+                timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
+                
+                // 显示更新状态
+                if (isNewContent) {
+                    sourceTag.textContent = "最新";
+                    sourceTag.className = "new-tag";
+                    setTimeout(() => {
+                        sourceTag.className = "source-tag";
+                        sourceTag.textContent = "";
+                    }, 2000);
+                } else {
+                    sourceTag.textContent = "";
                 }
                 
-                let url = CONFIG.source.url;
-                if (CONFIG.source.forceRefresh) {
-                    url += (url.includes('?') ? '&' : '?') + '_=' + Date.now();
-                }
-
-                const response = await Promise.race([
-                    fetch(url, {
-                        headers,
-                        cache: 'no-cache'
-                    }),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('请求超时')), CONFIG.timeout)
-                ]);
-
-                // 处理304 Not Modified
-                if (response.status === 304) {
-                    return {
-                        status: 'cached',
-                        content: appState.lastContent,
-                        isModified: false
-                    };
-                }
-
-                if (!response.ok) {
-                    throw new Error(`HTTP错误: ${response.status}`);
-                }
-
-                // 获取新的ETag和Last-Modified
-                const eTag = response.headers.get('ETag');
-                const lastModified = response.headers.get('Last-Modified');
-                const content = await response.text();
-
-                // 更新状态
-                appState.lastETag = eTag;
-                appState.lastModified = lastModified;
-                appState.lastContent = content;
-
-                return {
-                    status: 'success',
+                // 恢复滚动位置
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollPosition);
+                    setTimeout(() => {
+                        const recSectionTop = recSection.getBoundingClientRect().top;
+                        const windowHeight = window.innerHeight;
+                        if (recSectionTop < 0 || recSectionTop > windowHeight) {
+                            recSection.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'nearest' 
+                            });
+                        }
+                    }, 100);
+                });
+                
+                // 存储缓存
+                localStorage.setItem('lastRecommendation', JSON.stringify({
                     content,
-                    isModified: true,
-                    eTag,
-                    lastModified
-                };
+                    lastModified,
+                    timestamp: Date.now()
+                }));
+                
+            } catch (error) {
+                // 显示缓存内容
+                const cached = getCachedRecommendation();
+                if (cached) {
+                    contentDiv.textContent = `${cached.content}\n\n(注: 当前为缓存内容，点击按钮获取最新)`;
+                    contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
+                    timeDiv.textContent = `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
+                } else {
+                    contentDiv.textContent = `获取推荐内容失败: ${error.message}`;
+                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016获取最新推荐码，安卓wwtalk.com 苹果商店搜索旺商聊";
+                }
+                retryBtn.style.display = "block";
+                
+                // 恢复滚动位置
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollPosition);
+                });
             } finally {
-                appState.isFetching = false;
+                mainBtn.disabled = false;
+                mainBtn.innerHTML = '<span>✨</span><span>获取最新推荐</span>';
             }
         }
 
-        // 内容加载逻辑
-        async function loadRecommendation() {
-            const indicator = document.getElementById('updateIndicator');
-            indicator.textContent = '检查中...';
-            indicator.className = 'update-indicator';
-
+        // 检查内容更新
+        async function checkForUpdates() {
             try {
-                const result = await fetchContent();
-                const contentDiv = document.getElementById('dailyRecommendation');
-                const timeDiv = document.getElementById('updateTime');
-
-                if (result.status === 'cached') {
-                    contentDiv.textContent = appState.lastContent;
-                    indicator.textContent = '已缓存';
-                    indicator.className = 'update-indicator cached-data';
-                } else {
-                    contentDiv.textContent = result.content;
-                    timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
-                    
-                    if (result.isModified) {
-                        indicator.textContent = '最新内容';
-                        indicator.className = 'update-indicator new-update';
-                        // 5秒后恢复普通状态
-                        setTimeout(() => {
-                            indicator.textContent = '';
-                        }, 5000);
-                    }
-                }
-
-                // 存储到缓存
-                if (CONFIG.cache.enabled && result.content) {
-                    localStorage.setItem('appCache', JSON.stringify({
-                        content: result.content,
-                        timestamp: Date.now(),
-                        eTag: result.eTag,
-                        lastModified: result.lastModified
-                    }));
+                const { content } = await fetchWithTimeout(CONFIG.source);
+                const cached = getCachedRecommendation();
+                
+                if (cached && content !== cached.content) {
+                    // 发现新内容
+                    const sourceTag = document.getElementById("sourceTag");
+                    sourceTag.textContent = "有更新";
+                    sourceTag.className = "new-tag";
                 }
             } catch (error) {
-                console.error('加载失败:', error);
-                showError(error.message);
+                console.log("更新检查失败:", error);
             }
         }
 
-        // 自动更新检查
-        function startUpdateChecker() {
-            setInterval(async () => {
-                try {
-                    const result = await fetchContent();
-                    const indicator = document.getElementById('updateIndicator');
-                    
-                    if (result.isModified) {
-                        indicator.textContent = '有更新';
-                        indicator.className = 'update-indicator new-update';
-                    }
-                } catch (error) {
-                    console.log('更新检查失败:', error);
-                }
-            }, CONFIG.updateCheck.interval);
+        // 带超时的fetch请求
+        async function fetchWithTimeout(source) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), CONFIG.timeout);
+            
+            // 添加随机参数防止缓存
+            const url = source.url + (source.url.includes('?') ? '&' : '?') + '_=' + Date.now();
+
+            try {
+                const response = await fetch(url, {
+                    signal: controller.signal,
+                    cache: 'no-store'
+                });
+                clearTimeout(timeout);
+                
+                if (!response.ok) throw new Error(`HTTP状态: ${response.status}`);
+                
+                const content = await response.text();
+                const lastModified = response.headers.get('last-modified') || '';
+                
+                return { content, lastModified };
+                
+            } catch (error) {
+                throw new Error(error.name === "AbortError" ? "请求超时" : error.message);
+            }
         }
 
-        // 初始化加载
-        function initialize() {
-            // 尝试从缓存加载
-            const cached = localStorage.getItem('appCache');
-            if (cached) {
-                try {
-                    const data = JSON.parse(cached);
-                    if (Date.now() - data.timestamp < CONFIG.cache.duration) {
-                        const contentDiv = document.getElementById('dailyRecommendation');
-                        contentDiv.textContent = data.content;
-                        document.getElementById('updateTime').textContent = 
-                            `最后更新: ${new Date(data.timestamp).toLocaleString()}`;
-                        document.getElementById('recommendationSection').style.display = 'block';
-                        
-                        appState.lastContent = data.content;
-                        appState.lastETag = data.eTag;
-                        appState.lastModified = data.lastModified;
-                    }
-                } catch (e) {
-                    console.log('缓存解析失败:', e);
+        // 获取缓存内容
+        function getCachedRecommendation() {
+            const cached = localStorage.getItem('lastRecommendation');
+            if (!cached) return null;
+            
+            try {
+                const data = JSON.parse(cached);
+                if (Date.now() - data.timestamp > CONFIG.cacheExpiry) {
+                    return null;
                 }
+                return data;
+            } catch {
+                return null;
             }
-            
-            // 启动后台更新检查
-            startUpdateChecker();
-            
-            // 立即检查更新（静默）
-            setTimeout(() => {
-                fetchContent().catch(console.error);
-            }, 2000);
         }
 
         // 页面加载时初始化
-        window.addEventListener('DOMContentLoaded', initialize);
+        window.addEventListener('DOMContentLoaded', () => {
+            // 显示缓存内容
+            const cached = getCachedRecommendation();
+            if (cached) {
+                currentContent = cached.content;
+                const contentDiv = document.getElementById('dailyRecommendation');
+                contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
+                contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
+                document.getElementById('updateTime').textContent = 
+                    `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
+                document.getElementById('recommendationSection').style.display = 'block';
+            }
+            
+            // 启动定时更新检查
+            setInterval(checkForUpdates, CONFIG.checkInterval);
+            
+            // 首次加载后立即检查更新
+            setTimeout(checkForUpdates, 2000);
+        });
     </script>
 </body>
 </html>
