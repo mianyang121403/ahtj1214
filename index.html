@@ -10,9 +10,11 @@
             background-color: #f0f2f5;
             display: flex;
             justify-content: center;
-            align-items: center;
-            height: 100vh;
+            align-items: flex-start; /* 修改为顶部对齐 */
+            min-height: 100vh;
             margin: 0;
+            padding: 20px 0; /* 添加上下内边距 */
+            overflow-x: hidden; /* 防止水平滚动 */
         }
         .app-container {
             background-color: white;
@@ -22,8 +24,8 @@
             width: 90%;
             max-width: 500px;
             text-align: center;
-            min-height: 300px;
-            overflow: visible;
+            margin: 20px auto; /* 添加外边距 */
+            position: relative;
         }
         .logo {
             font-size: 24px;
@@ -60,16 +62,16 @@
         .recommendation-container {
             display: none;
             margin-top: 30px;
-            text-align: center; /* 修改：整体内容居中 */
+            text-align: center;
         }
         .recommendation-title {
-            font-size: 22px; /* 加大标题字体 */
+            font-size: 22px;
             font-weight: bold;
             color: #1890ff;
             margin-bottom: 20px;
             display: flex;
             align-items: center;
-            justify-content: center; /* 标题居中 */
+            justify-content: center;
         }
         .recommendation-content {
             background-color: #fafafa;
@@ -81,8 +83,8 @@
             overflow: visible;
             word-wrap: break-word;
             min-height: 100px;
-            font-size: 18px; /* 加大正文字体 */
-            text-align: center; /* 正文内容居中 */
+            font-size: 18px;
+            text-align: center;
         }
         .recommendation-content a {
             word-break: break-all;
@@ -90,7 +92,7 @@
         .update-time {
             color: #8c8c8c;
             font-size: 14px;
-            text-align: center; /* 更新时间居中 */
+            text-align: center;
             margin-top: 15px;
         }
         .recommendation-icon {
@@ -125,7 +127,7 @@
         @media (max-width: 600px) {
             .recommendation-content {
                 padding: 15px;
-                font-size: 16px; /* 移动端字体稍小 */
+                font-size: 16px;
             }
             .recommendation-title {
                 font-size: 20px;
@@ -134,12 +136,16 @@
                 width: 95%;
                 padding: 20px;
             }
+            .view-btn {
+                padding: 12px;
+                font-size: 15px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="app-container">
-        <div class="logo">博主内部推荐</div>
+        <div class="logo">博主精准推荐</div>
         
         <button class="view-btn" onclick="loadRecommendation()" id="mainBtn">
             <span>✨</span>
@@ -163,7 +169,7 @@
     </div>
 
     <script>
-        // 系统配置 - 使用Gitee作为主源
+        // 系统配置
         const CONFIG = {
             sources: [
                 {
@@ -175,11 +181,11 @@
                     url: "https://cdn.jsdelivr.net/gh/mianyang121403/ahtj1214@main/recommendation.txt"
                 }
             ],
-            timeout: 8000, // 8秒超时
-            cacheExpiry: 3600000 // 1小时缓存有效期(毫秒)
+            timeout: 8000,
+            cacheExpiry: 3600000
         };
 
-        // 加载推荐内容
+        // 加载推荐内容（已修复滚动问题）
         async function loadRecommendation() {
             const contentDiv = document.getElementById("dailyRecommendation");
             const timeDiv = document.getElementById("updateTime");
@@ -188,7 +194,10 @@
             const retryBtn = document.getElementById("retryBtn");
             const sourceTag = document.getElementById("sourceTag");
             
-            // 显示推荐区域，设置加载状态
+            // 保存当前滚动位置
+            const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+            
+            // 显示推荐区域
             recSection.style.display = "block";
             contentDiv.textContent = "正在获取最新推荐...";
             mainBtn.disabled = true;
@@ -197,17 +206,31 @@
             sourceTag.textContent = "";
             
             try {
-                // 尝试从多个源获取数据
                 const { content, sourceName } = await fetchRecommendation();
                 
-                // 显示内容并动态调整高度
+                // 更新内容
                 contentDiv.textContent = content;
                 contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
                 timeDiv.textContent = `最后更新: ${new Date().toLocaleString()}`;
                 sourceTag.textContent = sourceName;
-                recSection.scrollIntoView({ behavior: 'smooth' });
                 
-                // 存储到本地缓存
+                // 恢复滚动位置
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollPosition);
+                    setTimeout(() => {
+                        // 平滑滚动到推荐区域（仅当内容超出可视区域时）
+                        const recSectionTop = recSection.getBoundingClientRect().top;
+                        const windowHeight = window.innerHeight;
+                        if (recSectionTop < 0 || recSectionTop > windowHeight) {
+                            recSection.scrollIntoView({ 
+                                behavior: 'smooth', 
+                                block: 'nearest' 
+                            });
+                        }
+                    }, 100);
+                });
+                
+                // 存储缓存
                 localStorage.setItem('lastRecommendation', JSON.stringify({
                     content,
                     sourceName,
@@ -215,7 +238,7 @@
                 }));
                 
             } catch (error) {
-                // 尝试显示缓存内容
+                // 显示缓存内容
                 const cached = getCachedRecommendation();
                 if (cached) {
                     contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，可能不是最新)`;
@@ -224,16 +247,21 @@
                     timeDiv.textContent = `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
                 } else {
                     contentDiv.textContent = `获取推荐内容失败: ${error.message}`;
-                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016进博主内部推荐和苹果商店搜索旺商聊安卓wwtalk.com";
+                    timeDiv.textContent = "请检查网络连接后重试，旺商聊加940734016领取最新推荐码苹果商店搜索旺商聊安卓wwtalk.com";
                 }
                 retryBtn.style.display = "block";
+                
+                // 恢复滚动位置
+                requestAnimationFrame(() => {
+                    window.scrollTo(0, scrollPosition);
+                });
             } finally {
                 mainBtn.disabled = false;
-                mainBtn.innerHTML = '<span>✨</span><span>查看今日精准推荐</span>';
+                mainBtn.innerHTML = '<span>✨</span><span>查看今日推荐</span>';
             }
         }
 
-        // 从多个数据源获取推荐内容
+        // 从数据源获取内容
         async function fetchRecommendation() {
             let lastError = null;
             
@@ -250,7 +278,7 @@
             throw lastError || new Error("所有数据源均不可用");
         }
 
-        // 带超时的fetch封装
+        // 带超时的fetch请求
         async function fetchWithTimeout(url) {
             const controller = new AbortController();
             const timeout = setTimeout(() => controller.abort(), CONFIG.timeout);
@@ -271,7 +299,7 @@
             }
         }
 
-        // 获取缓存的推荐内容
+        // 获取缓存内容
         function getCachedRecommendation() {
             const cached = localStorage.getItem('lastRecommendation');
             if (!cached) return null;
@@ -287,12 +315,12 @@
             }
         }
 
-        // 页面加载时检查并显示缓存
+        // 页面加载时显示缓存
         window.addEventListener('DOMContentLoaded', () => {
             const cached = getCachedRecommendation();
             if (cached) {
                 const contentDiv = document.getElementById('dailyRecommendation');
-                contentDiv.textContent = `${cached.content}\n\n(注: 显示的是缓存内容，点击按钮获取最新)`;
+                contentDiv.textContent = `${cached.content}\n\n(注: 当前为缓存内容，点击查看按钮获取最新)`;
                 contentDiv.style.minHeight = contentDiv.scrollHeight + 'px';
                 document.getElementById('updateTime').textContent = 
                     `最后更新: ${new Date(cached.timestamp).toLocaleString()}`;
